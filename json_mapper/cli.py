@@ -6,8 +6,10 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
+import yaml
+
 from json_mapper.transform import transform_from_mapping
-from json_mapper.utils import load_json_file, save_json_file
+from json_mapper.utils import load_data_file, save_data_file
 
 # ############################################################
 # CLI Arguments and Parser
@@ -22,6 +24,7 @@ class CliArgs:
     input: str
     output: str | None = None
     indent: int = 2
+    yaml: bool = False
 
     @classmethod
     def from_namespace(cls, args: argparse.Namespace) -> "CliArgs":
@@ -38,6 +41,7 @@ class CliArgs:
             input=args.input,
             output=args.output,
             indent=args.indent,
+            yaml=args.yaml,
         )
 
 
@@ -64,14 +68,14 @@ json-mapper --version""",
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
 
     # Input file argument
-    parser.add_argument("input", help="Input JSON file")
+    parser.add_argument("input", help="Input data file (JSON or YAML format)")
 
     # Mapping configuration
     parser.add_argument(
         "-m",
         "--mapping",
         required=True,
-        help="Mapping configuration file (JSON format)",
+        help="Mapping configuration file (JSON or YAML format)",
     )
 
     # Output file
@@ -83,6 +87,14 @@ json-mapper --version""",
         type=int,
         default=2,
         help="Number of spaces for JSON indentation (default: 2)",
+    )
+
+    # YAML output flag
+    parser.add_argument(
+        "--yaml",
+        action="store_true",
+        default=False,
+        help="Output as YAML when printing to stdout (default: JSON)",
     )
 
     return parser
@@ -102,7 +114,7 @@ def load_mapping(args: CliArgs) -> dict[str, Any]:
     Returns:
         Mapping configuration dictionary
     """
-    return load_json_file(args.mapping)
+    return load_data_file(args.mapping)
 
 
 def load_input(args: CliArgs) -> dict[str, Any]:
@@ -114,7 +126,7 @@ def load_input(args: CliArgs) -> dict[str, Any]:
     Returns:
         Input data dictionary
     """
-    return load_json_file(args.input)
+    return load_data_file(args.input)
 
 
 def transform_input(
@@ -141,10 +153,18 @@ def write_output(data: dict[str, Any], args: CliArgs) -> None:
         args: Parsed CLI arguments
     """
     if args.output:
-        save_json_file(data, args.output, indent=args.indent)
+        save_data_file(data, args.output, indent=args.indent)
+    elif args.yaml:
+        yaml.safe_dump(
+            data,
+            sys.stdout,
+            indent=args.indent,
+            sort_keys=False,
+            default_flow_style=False,
+        )
     else:
         json.dump(data, sys.stdout, indent=args.indent)
-        print()  # Add newline at the end
+        print()
 
 
 # ############################################################
@@ -184,6 +204,12 @@ def main() -> int:
         return 1
     except json.JSONDecodeError as e:
         print(f"Error: Invalid JSON in file - {e.msg}", file=sys.stderr)
+        return 1
+    except yaml.YAMLError as e:
+        print(f"Error: Invalid YAML in file - {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

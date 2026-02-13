@@ -1,6 +1,6 @@
 # JSON Mapper
 
-A Python CLI tool that translates JSON values from one format to another using a declarative mapping configuration.
+A Python CLI tool that translates JSON values from one format to another using a declarative mapping configuration. Supports both JSON and YAML file formats for inputs and outputs.
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -14,8 +14,10 @@ A Python CLI tool that translates JSON values from one format to another using a
 ```
 root/
 ├── examples/           # Example input and mapping files
-│   ├── input.json      # Sample input data
-│   └── mapping.json    # Sample mapping configuration
+│   ├── input.json      # Sample input data (JSON)
+│   ├── input.yaml      # Sample input data (YAML)
+│   ├── mapping.json    # Sample mapping configuration (JSON)
+│   └── mapping.yaml    # Sample mapping configuration (YAML)
 ├── json_mapper/        # The package
 │   ├── transform.py    # Core transformation logic
 │   ├── utils.py        # Utility functions
@@ -50,6 +52,15 @@ poetry run json-mapper examples/input.json -m examples/mapping.json -o output.js
 
 # Print result to stdout 
 poetry run json-mapper examples/input.json -m examples/mapping.json
+
+# Use YAML files for input and mapping
+poetry run json-mapper examples/input.yaml -m examples/mapping.yaml -o output.yaml
+
+# Mix JSON and YAML formats freely
+poetry run json-mapper examples/input.yaml -m examples/mapping.json -o output.json
+
+# Print YAML to stdout instead of JSON
+poetry run json-mapper examples/input.json -m examples/mapping.json --yaml
 ```
 
 You should see the following output:
@@ -85,16 +96,17 @@ You should see the following output:
 
 ```
 positional arguments:
-  input                 Input JSON file
+  input                 Input data file (JSON or YAML format)
 
 options:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
   -m MAPPING, --mapping MAPPING
-                        Mapping configuration file (JSON format)
+                        Mapping configuration file (JSON or YAML format)
   -o OUTPUT, --output OUTPUT
                         Output file (default: stdout)
   --indent INDENT       Number of spaces for JSON indentation (default: 2)
+  --yaml                Output as YAML when printing to stdout (default: JSON)
 ```
 
 ### Supported Transformations

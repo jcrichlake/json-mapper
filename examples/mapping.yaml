@@ -1,0 +1,37 @@
+title:
+  field: opportunity_title
+opportunityCode:
+  concat:
+    parts:
+      - field: opportunity_number
+      - "-"
+      - field: opportunity_id
+status:
+  switch:
+    field: opportunity_status
+    case:
+      forecasted: upcoming
+      posted: open
+      archived: closed
+    default: unknown
+agency:
+  name:
+    field: agency_name
+  type: Federal
+contact:
+  name:
+    field: contact_name
+  email:
+    field: contact_email
+  phone:
+    field: contact_phone
+funding:
+  minimum:
+    field: summary.award_floor
+  maximum:
+    field: summary.award_ceiling
+  currency: USD
+eligibility:
+  field: summary.applicant_types
+deadline:
+  field: summary.close_date
