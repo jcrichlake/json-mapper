@@ -58,6 +58,12 @@ examples:
 	$(RUN_CMD) json-mapper examples/input.json -m examples/mapping.json
 	@echo "\n\n==> Example 2: Print to file"
 	$(RUN_CMD) json-mapper examples/input.json -m examples/mapping.json -o output/output.json
+	@echo "\n\n==> Example 3: YAML input and mapping to stdout"
+	$(RUN_CMD) json-mapper examples/input.yaml -m examples/mapping.yaml
+	@echo "\n\n==> Example 4: Mixed formats — YAML input to YAML output file"
+	$(RUN_CMD) json-mapper examples/input.yaml -m examples/mapping.json -o output/output.yaml
+	@echo "\n\n==> Example 5: JSON input with --yaml stdout"
+	$(RUN_CMD) json-mapper examples/input.json -m examples/mapping.json --yaml
 
 # Run all checks (format, lint, type-check, and test with coverage)
 checks: format-check lint type-check test-cov
