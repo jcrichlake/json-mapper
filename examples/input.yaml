@@ -1,0 +1,15 @@
+agency_name: Department of Examples
+opportunity_id: 12345
+opportunity_number: ABC-123
+opportunity_status: posted
+opportunity_title: Research Grant
+contact_name: Jane Smith
+contact_email: jane.smith@example.gov
+contact_phone: "555-0100"
+summary:
+  applicant_types:
+    - state_governments
+    - nonprofit
+  award_ceiling: 100000
+  award_floor: 10000
+  close_date: "2025-07-15"
