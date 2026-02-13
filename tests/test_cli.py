@@ -5,6 +5,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from json_mapper.cli import (
     CliArgs,
@@ -48,6 +49,28 @@ class TestLoadMapping:
         with pytest.raises(json.JSONDecodeError):
             load_mapping(args)
 
+    def test_load_mapping_yaml(self, tmp_path) -> None:
+        """Test loading a YAML mapping configuration file."""
+        mapping_file = tmp_path / "mapping.yaml"
+        mapping_data = {"field1": {"field": "source_field"}}
+        mapping_file.write_text(yaml.safe_dump(mapping_data))
+
+        args = CliArgs(mapping=str(mapping_file), input="input.json")
+        result = load_mapping(args)
+
+        assert result == mapping_data
+
+    def test_load_mapping_yml(self, tmp_path) -> None:
+        """Test loading a YML mapping configuration file."""
+        mapping_file = tmp_path / "mapping.yml"
+        mapping_data = {"field1": {"field": "source_field"}}
+        mapping_file.write_text(yaml.safe_dump(mapping_data))
+
+        args = CliArgs(mapping=str(mapping_file), input="input.json")
+        result = load_mapping(args)
+
+        assert result == mapping_data
+
 
 class TestLoadInput:
     """Tests for load_input function."""
@@ -69,6 +92,28 @@ class TestLoadInput:
 
         with pytest.raises(FileNotFoundError):
             load_input(args)
+
+    def test_load_input_yaml(self, tmp_path) -> None:
+        """Test loading input from a YAML file."""
+        input_file = tmp_path / "input.yaml"
+        input_data = {"key": "value"}
+        input_file.write_text(yaml.safe_dump(input_data))
+
+        args = CliArgs(mapping="mapping.json", input=str(input_file))
+        result = load_input(args)
+
+        assert result == input_data
+
+    def test_load_input_yml(self, tmp_path) -> None:
+        """Test loading input from a YML file."""
+        input_file = tmp_path / "input.yml"
+        input_data = {"key": "value"}
+        input_file.write_text(yaml.safe_dump(input_data))
+
+        args = CliArgs(mapping="mapping.json", input=str(input_file))
+        result = load_input(args)
+
+        assert result == input_data
 
 
 class TestTransformInput:
@@ -169,6 +214,20 @@ class TestCreateParser:
         assert args.output == "output.json"
         assert args.indent == 4
 
+    def test_parser_yaml_flag(self) -> None:
+        """Test parser with --yaml flag."""
+        parser = create_parser()
+        args = parser.parse_args(["input.json", "-m", "mapping.json", "--yaml"])
+
+        assert args.yaml is True
+
+    def test_parser_yaml_flag_default(self) -> None:
+        """Test parser --yaml flag defaults to False."""
+        parser = create_parser()
+        args = parser.parse_args(["input.json", "-m", "mapping.json"])
+
+        assert args.yaml is False
+
 
 class TestCliArgs:
     """Tests for CliArgs dataclass."""
@@ -204,6 +263,16 @@ class TestCliArgs:
         assert args.input == "input.json"
         assert args.output == "output.json"
         assert args.indent == 4
+
+    def test_from_namespace_with_yaml(self) -> None:
+        """Test creating CliArgs with --yaml flag."""
+        parser = create_parser()
+        namespace = parser.parse_args(
+            ["input.json", "-m", "mapping.json", "--yaml"],
+        )
+        args = CliArgs.from_namespace(namespace)
+
+        assert args.yaml is True
 
 
 class TestWriteOutput:
@@ -249,10 +318,90 @@ class TestWriteOutput:
         )
         write_output(output_data, args)
 
-        # Read the file as text to check indentation
         content = output_file.read_text()
-        # With indent=4, we should see 4 spaces before nested keys
         assert "    " in content
+
+    def test_write_output_to_yaml_file(self, tmp_path) -> None:
+        """Test writing output to a YAML file."""
+        output_file = tmp_path / "output.yaml"
+        output_data = {"result": "success"}
+
+        args = CliArgs(
+            mapping="mapping.json",
+            input="input.json",
+            output=str(output_file),
+        )
+        write_output(output_data, args)
+
+        assert output_file.exists()
+        loaded_data = yaml.safe_load(output_file.read_text())
+        assert loaded_data == output_data
+
+    def test_write_output_to_yml_file(self, tmp_path) -> None:
+        """Test writing output to a YML file."""
+        output_file = tmp_path / "output.yml"
+        output_data = {"result": "success"}
+
+        args = CliArgs(
+            mapping="mapping.json",
+            input="input.json",
+            output=str(output_file),
+        )
+        write_output(output_data, args)
+
+        assert output_file.exists()
+        loaded_data = yaml.safe_load(output_file.read_text())
+        assert loaded_data == output_data
+
+    def test_write_output_yaml_stdout(self, capsys) -> None:
+        """Test writing YAML output to stdout with --yaml flag."""
+        output_data = {"result": "success"}
+
+        args = CliArgs(
+            mapping="mapping.json",
+            input="input.json",
+            output=None,
+            yaml=True,
+        )
+        write_output(output_data, args)
+
+        captured = capsys.readouterr()
+        loaded_data = yaml.safe_load(captured.out)
+        assert loaded_data == output_data
+
+    def test_write_output_yaml_custom_indent(self, capsys) -> None:
+        """Test writing YAML to stdout with custom indent."""
+        output_data = {"result": "success", "data": {"nested": "value"}}
+
+        args = CliArgs(
+            mapping="mapping.json",
+            input="input.json",
+            output=None,
+            indent=4,
+            yaml=True,
+        )
+        write_output(output_data, args)
+
+        captured = capsys.readouterr()
+        assert "    nested" in captured.out
+
+    def test_write_output_yaml_preserves_key_order(self, capsys) -> None:
+        """Test that YAML stdout output preserves key order."""
+        output_data = {"zebra": 1, "alpha": 2, "middle": 3}
+
+        args = CliArgs(
+            mapping="mapping.json",
+            input="input.json",
+            output=None,
+            yaml=True,
+        )
+        write_output(output_data, args)
+
+        captured = capsys.readouterr()
+        zebra_pos = captured.out.find("zebra")
+        alpha_pos = captured.out.find("alpha")
+        middle_pos = captured.out.find("middle")
+        assert zebra_pos < alpha_pos < middle_pos
 
 
 class TestMainIntegration:
@@ -382,7 +531,6 @@ class TestMainCLI:
 
     def test_main_end_to_end(self, tmp_path) -> None:
         """Test complete end-to-end CLI workflow."""
-        # Create a more complex scenario
         input_file = tmp_path / "input.json"
         input_data = {
             "user": {"name": "Alice", "type": "admin"},
@@ -429,3 +577,190 @@ class TestMainCLI:
             "data": {"amount": 42, "currency": "USD"},
         }
         assert result == expected
+
+    def test_main_yaml_input_json_output(self, tmp_path) -> None:
+        """Test YAML input with JSON output."""
+        input_file = tmp_path / "input.yaml"
+        input_data = {"source": "value"}
+        input_file.write_text(yaml.safe_dump(input_data))
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        output_file = tmp_path / "output.json"
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+            "-o",
+            str(output_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 0
+        with output_file.open() as f:
+            result = json.load(f)
+        assert result == {"target": "value"}
+
+    def test_main_json_input_yaml_output(self, tmp_path) -> None:
+        """Test JSON input with YAML output."""
+        input_file = tmp_path / "input.json"
+        input_data = {"source": "value"}
+        input_file.write_text(json.dumps(input_data))
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        output_file = tmp_path / "output.yaml"
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+            "-o",
+            str(output_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 0
+        loaded_data = yaml.safe_load(output_file.read_text())
+        assert loaded_data == {"target": "value"}
+
+    def test_main_yaml_input_yaml_output(self, tmp_path) -> None:
+        """Test YAML input with YAML output."""
+        input_file = tmp_path / "input.yaml"
+        input_data = {"source": "value"}
+        input_file.write_text(yaml.safe_dump(input_data))
+
+        mapping_file = tmp_path / "mapping.yaml"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(yaml.safe_dump(mapping_data))
+
+        output_file = tmp_path / "output.yaml"
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+            "-o",
+            str(output_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 0
+        loaded_data = yaml.safe_load(output_file.read_text())
+        assert loaded_data == {"target": "value"}
+
+    def test_main_mixed_formats(self, tmp_path) -> None:
+        """Test YAML input with JSON mapping and YAML output."""
+        input_file = tmp_path / "input.yaml"
+        input_data = {"source": "value"}
+        input_file.write_text(yaml.safe_dump(input_data))
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        output_file = tmp_path / "output.yaml"
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+            "-o",
+            str(output_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 0
+        loaded_data = yaml.safe_load(output_file.read_text())
+        assert loaded_data == {"target": "value"}
+
+    def test_main_yaml_stdout(self, tmp_path, capsys) -> None:
+        """Test --yaml flag for stdout output."""
+        input_file = tmp_path / "input.json"
+        input_data = {"source": "value"}
+        input_file.write_text(json.dumps(input_data))
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+            "--yaml",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        loaded_data = yaml.safe_load(captured.out)
+        assert loaded_data == {"target": "value"}
+
+    def test_main_invalid_yaml(self, tmp_path, capsys) -> None:
+        """Test CLI with invalid YAML input."""
+        input_file = tmp_path / "input.yaml"
+        input_file.write_text("invalid: yaml: content: [")
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "Error:" in captured.err
+        assert "Invalid YAML" in captured.err
+
+    def test_main_unsupported_extension(self, tmp_path, capsys) -> None:
+        """Test CLI with unsupported file extension."""
+        input_file = tmp_path / "input.xml"
+        input_file.write_text('{"key": "value"}')
+
+        mapping_file = tmp_path / "mapping.json"
+        mapping_data = {"target": {"field": "source"}}
+        mapping_file.write_text(json.dumps(mapping_data))
+
+        test_args = [
+            "json-mapper",
+            str(input_file),
+            "-m",
+            str(mapping_file),
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            exit_code = main()
+
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "Error:" in captured.err
+        assert "Unsupported file format" in captured.err
